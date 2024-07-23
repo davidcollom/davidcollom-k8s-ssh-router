@@ -28,21 +28,40 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Docker image
-      id: build-image
+    - name: Build ssh-server Docker image
+      id: build-ssh-server
       run: |
         COMMIT_HASH=$(git rev-parse --short HEAD)
         IMAGE_TAG=${COMMIT_HASH}
-        docker build -t ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG} .
+        docker build -t ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG} -f Dockerfile .
         echo "::set-output name=image-tag::${IMAGE_TAG}"
 
-    - name: Push Docker image to GHCR
+    - name: Build ssh-client Docker image
+      id: build-ssh-client
       run: |
-        IMAGE_TAG=${{ steps.build-image.outputs.image-tag }}
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        IMAGE_TAG=${COMMIT_HASH}
+        docker build -t ghcr.io/${{ github.repository }}/ssh-client:${IMAGE_TAG} -f Dockerfile.client .
+        echo "::set-output name=image-tag::${IMAGE_TAG}"
+
+    - name: Push ssh-server Docker image to GHCR
+      run: |
+        IMAGE_TAG=${{ steps.build-ssh-server.outputs.image-tag }}
         docker push ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG}
 
-    - name: Tag and push latest image on main branch
+    - name: Push ssh-client Docker image to GHCR
+      run: |
+        IMAGE_TAG=${{ steps.build-ssh-client.outputs.image-tag }}
+        docker push ghcr.io/${{ github.repository }}/ssh-client:${IMAGE_TAG}
+
+    - name: Tag and push latest ssh-server image on main branch
       if: github.ref == 'refs/heads/main'
       run: |
         docker tag ghcr.io/${ github.repository }}/ssh-server:${{ github.sha }} ghcr.io/${ github.repository }}/ssh-server:latest
         docker push ghcr.io/${ github.repository }}/ssh-server:latest
+
+    - name: Tag and push latest ssh-client image on main branch
+      if: github.ref == 'refs/heads/main'
+      run: |
+        docker tag ghcr.io/${ github.repository }}/ssh-client:${{ github.sha }} ghcr.io/${ github.repository }}/ssh-client:latest
+        docker push ghcr.io/${ github.repository }}/ssh-client:latest

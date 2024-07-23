@@ -26,6 +26,9 @@ def setup_kubernetes():
     wait_for_statefulset("ssh-statefulset")
     wait_for_deployment("ssh-service")
 
+    # Deploy the client containers in separate namespaces
+    deploy_client_containers(image_tag)
+
     yield
 
     # Teardown Kubernetes resources
@@ -37,6 +40,80 @@ def setup_kubernetes():
     subprocess.run(["kubectl", "delete", "-f", "deploy/service.yaml"], check=True)
     subprocess.run(["kubectl", "delete", "-f", "deploy/hpa.yaml"], check=True)
     subprocess.run(["kubectl", "delete", "-f", "deploy/prometheus-adapter-config.yaml"], check=True)
+    teardown_client_containers()
+
+def deploy_client_containers(image_tag):
+    namespaces = ["client-ns-1", "client-ns-2"]
+    for ns in namespaces:
+        subprocess.run(["kubectl", "create", "namespace", ns], check=True)
+
+    client_1_yaml = f"""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-1
+  namespace: client-ns-1
+  labels:
+    app: ssh-client
+spec:
+  initContainers:
+  - name: init-client
+    image: alpine
+    command: ["/bin/sh", "-c", "echo 'Client 1' > /mnt/echo1.txt"]
+    volumeMounts:
+    - mountPath: /mnt
+      name: client-mount
+  containers:
+  - name: ssh-client
+    image: ghcr.io/{os.getenv('GITHUB_REPOSITORY')}/ssh-client:{image_tag}
+    volumeMounts:
+    - mountPath: /mnt
+      name: client-mount
+  volumes:
+  - name: client-mount
+    emptyDir: {{}}
+"""
+
+    client_2_yaml = f"""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-2
+  namespace: client-ns-2
+  labels:
+    app: ssh-client
+spec:
+  initContainers:
+  - name: init-client
+    image: alpine
+    command: ["/bin/sh", "-c", "echo 'Client 2' > /mnt/echo2.txt"]
+    volumeMounts:
+    - mountPath: /mnt
+      name: client-mount
+  containers:
+  - name: ssh-client
+    image: ghcr.io/{os.getenv('GITHUB_REPOSITORY')}/ssh-client:{image_tag}
+    volumeMounts:
+    - mountPath: /mnt
+      name: client-mount
+  volumes:
+  - name: client-mount
+    emptyDir: {{}}
+"""
+    with open("client_1.yaml", "w") as f:
+        f.write(client_1_yaml)
+
+    with open("client_2.yaml", "w") as f:
+        f.write(client_2_yaml)
+
+    subprocess.run(["kubectl", "apply", "-f", "client_1.yaml"], check=True)
+    subprocess.run(["kubectl", "apply", "-f", "client_2.yaml"], check=True)
+
+def teardown_client_containers():
+    subprocess.run(["kubectl", "delete", "namespace", "client-ns-1"], check=True)
+    subprocess.run(["kubectl", "delete", "namespace", "client-ns-2"], check=True)
+    os.remove("client_1.yaml")
+    os.remove("client_2.yaml")
 
 def wait_for_statefulset(statefulset_name, namespace="default", timeout=600):
     start_time = time.time()
@@ -70,6 +147,10 @@ def test_service_endpoint(setup_kubernetes):
     assert service_ip != ""
 
     # Perform an SSH connection test (assuming the SSH server responds to a simple SSH command)
-    ssh_test = subprocess.run(["sshpass", "-p", "example-password", "ssh", "-oStrictHostKeyChecking=no", f"example-user@{service_ip}", "echo", "SSH Connection Successful"],
-                              capture_output=True, text=True)
-    assert "SSH Connection Successful" in ssh_test.stdout
+    ssh_test_1 = subprocess.run(["sshpass", "-p", "example-password", "ssh", "-oStrictHostKeyChecking=no", f"example-user@{service_ip}", "cat", "/mnt/echo1.txt"],
+                                capture_output=True, text=True)
+    assert "Client 1" in ssh_test_1.stdout
+
+    ssh_test_2 = subprocess.run(["sshpass", "-p", "example-password", "ssh", "-oStrictHostKeyChecking=no", f"example-user@{service_ip}", "cat", "/mnt/echo2.txt"],
+                                capture_output=True, text=True)
+    assert "Client 2" in ssh_test_2.stdout
