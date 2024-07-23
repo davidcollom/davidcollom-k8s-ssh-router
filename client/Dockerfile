@@ -8,6 +8,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pam_k8s_auth .
 
 FROM ubuntu:20.04
 
+# Set DEBIAN_FRONTEND to noninteractive to avoid dialog frontend issues
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y openssh-server libpam0g-dev
 
 COPY --from=builder /app/pam_k8s_auth /usr/local/bin/pam_k8s_auth

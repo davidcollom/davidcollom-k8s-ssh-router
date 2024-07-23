@@ -1,5 +1,8 @@
 FROM ubuntu:20.04
 
+# Set DEBIAN_FRONTEND to noninteractive to avoid dialog frontend issues
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y openssh-server python3-pip libpam-python
 
 # Install necessary Python libraries
