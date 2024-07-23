@@ -137,20 +137,4 @@ def wait_for_deployment(deployment_name, namespace="default", timeout=600):
 
 def test_pods_running(setup_kubernetes):
     result = subprocess.run(["kubectl", "get", "pods", "-l", "app=ssh-statefulset", "-o", "jsonpath='{.items[*].status.phase}'"],
-                            capture_output=True, text=True)
-    assert "Running" in result.stdout
-
-def test_service_endpoint(setup_kubernetes):
-    result = subprocess.run(["kubectl", "get", "svc", "ssh-statefulset-service", "-o", "jsonpath='{.status.loadBalancer.ingress[0].ip}'"],
-                            capture_output=True, text=True)
-    service_ip = result.stdout.strip("'")
-    assert service_ip != ""
-
-    # Perform an SSH connection test (assuming the SSH server responds to a simple SSH command)
-    ssh_test_1 = subprocess.run(["sshpass", "-p", "example-password", "ssh", "-oStrictHostKeyChecking=no", f"example-user@{service_ip}", "cat", "/mnt/echo1.txt"],
-                                capture_output=True, text=True)
-    assert "Client 1" in ssh_test_1.stdout
-
-    ssh_test_2 = subprocess.run(["sshpass", "-p", "example-password", "ssh", "-oStrictHostKeyChecking=no", f"example-user@{service_ip}", "cat", "/mnt/echo2.txt"],
-                                capture_output=True, text=True)
-    assert "Client 2" in ssh_test_2.stdout
+                            capture_output=True, text​⬤

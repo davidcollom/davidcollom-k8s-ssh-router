@@ -29,10 +29,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Load Docker image into Kind
+    - name: Load Docker images into Kind
       run: |
         IMAGE_TAG=${{ github.event.workflow_run.head_sha }}
         kind load docker-image ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG}
+        kind load docker-image ghcr.io/${{ github.repository }}/ssh-client:${IMAGE_TAG}
 
     - name: Install dependencies for integration tests
       run: |
