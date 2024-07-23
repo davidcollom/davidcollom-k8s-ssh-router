@@ -19,53 +19,39 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
-
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build ssh-server Docker image
+    - name: Build and push ssh-server Docker image
       id: build-ssh-server
-      run: |
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        IMAGE_TAG=${COMMIT_HASH}
-        docker build -t ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG} -f Dockerfile .
-        echo "::set-output name=image-tag::${IMAGE_TAG}"
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        file: Dockerfile
+        push: true
+        tags: ghcr.io/${{ github.repository }}/ssh-server:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-    - name: Build ssh-client Docker image
+    - name: Build and push ssh-client Docker image
       id: build-ssh-client
-      run: |
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        IMAGE_TAG=${COMMIT_HASH}
-        docker build -t ghcr.io/${{ github.repository }}/ssh-client:${IMAGE_TAG} client/
-        echo "::set-output name=image-tag::${IMAGE_TAG}"
-
-    - name: Push ssh-server Docker image to GHCR
-      run: |
-        IMAGE_TAG=${{ steps.build-ssh-server.outputs.image-tag }}
-        docker push ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG}
-
-    - name: Push ssh-client Docker image to GHCR
-      run: |
-        IMAGE_TAG=${{ steps.build-ssh-client.outputs.image-tag }}
-        docker push ghcr.io/${{ github.repository }}/ssh-client:${IMAGE_TAG}
+      uses: docker/build-push-action@v3
+      with:
+        context: client/
+        file: client/Dockerfile
+        push: true
+        tags: ghcr.io/${{ github.repository }}/ssh-client:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: Tag and push latest ssh-server image on main branch
       if: github.ref == 'refs/heads/main'
       run: |
-        docker tag ghcr.io/${ github.repository }}/ssh-server:${{ github.sha }} ghcr.io/${ github.repository }}/ssh-server:latest
-        docker push ghcr.io/${ github.repository }}/ssh-server:latest
+        docker tag ghcr.io/${{ github.repository }}/ssh-server:${{ github.sha }} ghcr.io/${{ github.repository }}/ssh-server:latest
+        docker push ghcr.io/${{ github.repository }}/ssh-server:latest
 
     - name: Tag and push latest ssh-client image on main branch
       if: github.ref == 'refs/heads/main'
       run: |
-        docker tag ghcr.io/${ github.repository }}/ssh-client:${{ github.sha }} ghcr.io/${ github.repository }}/ssh-client:latest
-        docker push ghcr.io/${ github.repository }}/ssh-client:latest
+        docker tag ghcr.io/${{ github.repository }}/ssh-client:${{ github.sha }} ghcr.io/${{ github.repository }}/ssh-client:latest
+        docker push ghcr.io/${{ github.repository }}/ssh-client:latest
