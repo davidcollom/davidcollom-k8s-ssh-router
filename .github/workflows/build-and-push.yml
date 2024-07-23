@@ -30,7 +30,7 @@ jobs:
 
     - name: Build ssh-server Docker image
       id: build-ssh-server
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v6
       with:
         context: .
         file: Dockerfile
@@ -41,7 +41,7 @@ jobs:
 
     - name: Push ssh-server Docker image
       if: github.ref == 'refs/heads/main'
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v6
       with:
         context: .
         file: Dockerfile
@@ -70,7 +70,7 @@ jobs:
 
     - name: Build ssh-client Docker image
       id: build-ssh-client
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v6
       with:
         context: client/
         file: client/Dockerfile
@@ -81,7 +81,7 @@ jobs:
 
     - name: Push ssh-client Docker image
       if: github.ref == 'refs/heads/main'
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v6
       with:
         context: client/
         file: client/Dockerfile
