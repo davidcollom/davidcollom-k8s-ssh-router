@@ -1,0 +1,41 @@
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build Docker image
+      id: build-image
+      run: |
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        IMAGE_TAG=${COMMIT_HASH}
+        docker build -t ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG} .
+        echo "::set-output name=image-tag::${IMAGE_TAG}"
+
+    - name: Push Docker image to GHCR
+      run: |
+        IMAGE_TAG=${{ steps.build-image.outputs.image-tag }}
+        docker push ghcr.io/${{ github.repository }}/ssh-server:${IMAGE_TAG}
+
+    - name: Tag and push latest image on main branch
+      if: github.ref == 'refs/heads/main'
+      run: |
+        docker tag ghcr.io/${ github.repository }}/ssh-server:${{ github.sha }} ghcr.io/${ github.repository }}/ssh-server:latest
+        docker push ghcr.io/${ github.repository }}/ssh-server:latest

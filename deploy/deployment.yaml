@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssh-service
+  template:
+    metadata:
+      labels:
+        app: ssh-service
+    spec:
+      serviceAccountName: ssh-service-account
+      containers:
+        - name: ssh-server
+          image: your-registry/ssh-server:latest
+          ports:
+            - containerPort: 2222
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+          command: ["/usr/sbin/sshd", "-D"]
+        - name: cache-updater
+          image: your-registry/ssh-server:latest
+          command: ["python3", "/usr/local/bin/cache_updater.py"]
+        - name: prometheus-exporter
+          image: your-registry/ssh-server:latest
+          command: ["python3", "/usr/local/bin/ssh_prometheus_exporter.py"]
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
