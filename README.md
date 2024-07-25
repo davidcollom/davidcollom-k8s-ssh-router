@@ -1,15 +1,14 @@
-# Kubernetes SSH Gateway with Transparent Authentication and Autoscaling
+# k8s-ssh-router
 
-## Overview
-
-This project provides a scalable, cost-effective solution for securely accessing Kubernetes pods via SSH. By leveraging a central SSH gateway, Kubernetes secrets, and Prometheus metrics, this solution enables transparent authentication and automatic scaling of SSH sessions to pods within your cluster.
+`k8s-ssh-router` is a Go application designed to handle SSH connections and forward them to specific services within a Kubernetes cluster. It uses Kubernetes secrets for authentication and supports various SSH functionalities, including SFTP.
 
 ## Features
 
-- **Transparent Authentication**: User credentials are stored in Kubernetes secrets and are transparently authenticated without any special configuration on the client's machine.
-- **Cost-Effective Scaling**: Uses a single LoadBalancer service to route SSH traffic, reducing costs and simplifying IP address management.
-- **Auto-Scaling**: Automatically scales the number of SSH gateway pods based on the number of active SSH sessions, ensuring efficient resource utilization.
-- **Prometheus Monitoring**: Exposes custom metrics for monitoring and autoscaling using Prometheus and the Prometheus Adapter.
+- **SSH Authentication:** Uses Kubernetes secrets for user authentication.
+- **Forwarding:** Forwards SSH connections to specific services in the cluster.
+- **SFTP Support:** Supports file transfers via SFTP.
+- **Metrics:** Exposes Prometheus metrics for active sessions.
+- **Configurable:** Various options can be configured via command-line arguments or environment variables.
 
 ## Why This Solution?
 
@@ -25,86 +24,114 @@ Running multiple LoadBalancer services can be expensive and may not scale well d
 
 Managing a fixed number of SSH servers can lead to either over-provisioning or under-provisioning of resources. This solution uses Prometheus metrics to dynamically scale the number of SSH gateway pods based on actual usage, ensuring optimal resource utilization.
 
-## How It Works
+## Table of Contents
 
-### Architecture
+- [k8s-ssh-router](#k8s-ssh-router)
+  - [Features](#features)
+  - [Why This Solution?](#why-this-solution)
+    - [Secure SSH Access](#secure-ssh-access)
+    - [Cost-Effective Scaling](#cost-effective-scaling)
+    - [Auto-Scaling](#auto-scaling)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Running the application](#running-the-application)
+    - [Configuration](#configuration)
+  - [Development](#development)
+    - [Prerequisites](#prerequisites)
+      - [Running Tests](#running-tests)
+      - [Building the Docker Image](#building-the-docker-image)
+  - [CI/CD Pipeline](#cicd-pipeline)
+  - [Dependencies Management](#dependencies-management)
+  - [Contributing](#contributing)
+  - [License](#license)
 
-1. **SSH Gateway Pod**: Users connect to an SSH gateway pod via a LoadBalancer service. The SSH gateway pod is configured to authenticate users against credentials stored in Kubernetes secrets.
-2. **Transparent Authentication**: A custom PAM module (`pam_k8s_auth.py`) fetches user credentials from Kubernetes secrets and sets the appropriate environment variables for routing the SSH connection.
-3. **SSH Forwarding**: An SSH forwarding script (`ssh_forward.sh`) uses the environment variables to route the authenticated SSH session to the appropriate pod within the cluster.
-4. **Prometheus Monitoring**: A Prometheus exporter (`ssh_prometheus_exporter.py`) exposes custom metrics, such as the number of active SSH sessions, which are used for monitoring and autoscaling.
-5. **Autoscaling**: The Horizontal Pod Autoscaler (HPA) uses custom metrics exposed by the Prometheus Adapter to scale the number of SSH gateway pods based on the number of active SSH sessions.
+## Installation
 
-### Components
+To install the `k8s-ssh-router`, you need to have Go installed. You can then build the application from source.
 
-- **Kubernetes Secrets**: Store user credentials including username, password, and SSH keys.
-- **Custom PAM Module**: Authenticates users against Kubernetes secrets.
-- **SSH Forwarding Script**: Routes authenticated SSH sessions to the appropriate pod.
-- **Prometheus Exporter**: Exposes custom metrics for monitoring and autoscaling.
-- **Prometheus Adapter**: Makes Prometheus metrics available to the Kubernetes custom metrics API.
-- **Horizontal Pod Autoscaler (HPA)**: Automatically scales the SSH gateway pods based on custom metrics.
+```bash
+git clone https://github.com/davidcollom/k8s-ssh-router.git
+cd k8s-ssh-router
+go build -o k8s-ssh-router ./cmd
+```
 
-## Setup and Deployment
+You can also pull the Docker image from GitHub Container Registry (GHCR):
+
+```sh
+docker pull ghcr.io/davidcollom/k8s-ssh-router:latest
+```
+
+
+## Usage
+
+### Running the application
+
+To run the application, you can use the built binary:
+
+```sh
+./k8s-ssh-router --reconcile-interval 60 --ssh-port 2222 --metrics-port 9090 --namespace default --private-key-path /path/to/id_rsa
+```
+
+Or you can run it using Docker:
+
+```sh
+docker run -d -p 2222:2222 -p 9090:9090 \
+  -e RECONCILE_INTERVAL=60 \
+  -e SSH_PORT=2222 \
+  -e METRICS_PORT=9090 \
+  -e NAMESPACE=default \
+  -e PRIVATE_KEY_PATH=/path/to/id_rsa \
+  ghcr.io/davidcollom/k8s-ssh-router:latest
+```
+
+### Configuration
+
+The following options can be configured via command-line arguments or environment variables:
+
+- `--reconcile-interval` / `RECONCILE_INTERVAL`: Reconciliation interval in seconds (default: 60)
+- `--ssh-port` / `SSH_PORT`: SSH server port (default: 2222)
+- `--metrics-port` / `METRICS_PORT`: Metrics server port (default: 9090)
+- `--namespace` / `NAMESPACE`: Kubernetes namespace
+- `--private-key-path` / `PRIVATE_KEY_PATH`: Path to the private key file
+
+## Development
 
 ### Prerequisites
 
-- Kubernetes cluster
-- Prometheus and Prometheus Adapter installed
-- Docker and Docker Hub or GitHub Container Registry (GHCR) for building and storing Docker images
+- Go 1.21 or later
+- Docker
 
-### Steps
+#### Running Tests
 
-1. **Build and Push Docker Image**
+To run the tests locally:
 
-   ```sh
-   docker build -t ghcr.io/<your-username>/ssh-server:latest .
-   docker push ghcr.io/<your-username>/ssh-server:latest
-   ```
+```sh
+go tst ./... -v
+```
 
-2. **Install Prometheus Adapter via Helm**
-  Add the Prometheus community Helm repository:
+#### Building the Docker Image
 
-  ```sh
-  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-  helm repo update
-  ```
+To build the Docker image:
 
-  Install the Prometheus Adapter:
+```sh
+docker build -t ghcr.io/davidcollom/k8s-ssh-router:latest .
+```
 
-  ```sh
-  helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace custom-metrics --create-namespace
-  ```
 
-  Customize the Prometheus Adapter configuration if needed by creating a values.yaml file:
-  values.yaml
+## CI/CD Pipeline
 
-  ```yaml
-  prometheus:
-  url: http://prometheus-server.prometheus.svc.cluster.local
+This project uses GitHub Actions for continuous integration and deployment. The workflow is defined in `.github/workflows/go.yml`.
 
-rules:
-  default: false
+## Dependencies Management
 
-  custom:
-    - seriesQuery: 'ssh_active_sessions'
-      resources:
-        overrides:
-          namespace: {resource: "namespace"}
-      name:
-        matches: "^(.*)_total"
-        as: "${1}_per_second"
-      metricsQuery: 'sum(rate(ssh_active_sessions[2m])) by (namespace)'
-  ```
+This project uses Dependabot to keep dependencies up to date. The configuration is defined in `.github/dependabot.yml`.
 
-  Install with custom values:
 
-  ```sh
-  helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace custom-metrics --create-namespace -f values.yaml
-  ```
+## Contributing
 
-3. **Apply Kubernetes Manifests**
-  Apply the SSH service and deployment manifests:
+Contributions are welcome! Please open an issue or submit a pull request for any changes.
 
-  ```sh
-  kubectl apply -f deploy/
-  ```
+## License
+
+This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
