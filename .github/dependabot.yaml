@@ -1,19 +1,19 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/" # Location of your Python dependencies (e.g., `requirements.txt` or `pyproject.toml`)
+  # Keep Go modules up to date
+  - package-ecosystem: "go"
+    directory: "/"
     schedule:
-      interval: "weekly" # Check for updates weekly
-    ignore:
-      - dependency-name: "requests"
-        versions: ["2.24.0"] # Example to ignore specific versions of a dependency
+      interval: "weekly"
 
-  - package-ecosystem: "docker"
-    directory: "/" # Location of your Dockerfile
-    schedule:
-      interval: "weekly" # Check for updates weekly
-
+  # Keep GitHub Actions up to date
   - package-ecosystem: "github-actions"
-    directory: ".github/workflows" # Location of your GitHub Actions workflows
+    directory: "/"
     schedule:
-      interval: "weekly" # Check for updates weekly
+      interval: "weekly"
+
+  # Keep Docker images up to date
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

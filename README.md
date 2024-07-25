@@ -60,3 +60,51 @@ Managing a fixed number of SSH servers can lead to either over-provisioning or u
    docker build -t ghcr.io/<your-username>/ssh-server:latest .
    docker push ghcr.io/<your-username>/ssh-server:latest
    ```
+
+2. **Install Prometheus Adapter via Helm**
+  Add the Prometheus community Helm repository:
+
+  ```sh
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm repo update
+  ```
+
+  Install the Prometheus Adapter:
+
+  ```sh
+  helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace custom-metrics --create-namespace
+  ```
+
+  Customize the Prometheus Adapter configuration if needed by creating a values.yaml file:
+  values.yaml
+
+  ```yaml
+  prometheus:
+  url: http://prometheus-server.prometheus.svc.cluster.local
+
+rules:
+  default: false
+
+  custom:
+    - seriesQuery: 'ssh_active_sessions'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+      name:
+        matches: "^(.*)_total"
+        as: "${1}_per_second"
+      metricsQuery: 'sum(rate(ssh_active_sessions[2m])) by (namespace)'
+  ```
+
+  Install with custom values:
+
+  ```sh
+  helm install prometheus-adapter prometheus-community/prometheus-adapter --namespace custom-metrics --create-namespace -f values.yaml
+  ```
+
+3. **Apply Kubernetes Manifests**
+  Apply the SSH service and deployment manifests:
+
+  ```sh
+  kubectl apply -f deploy/
+  ```
